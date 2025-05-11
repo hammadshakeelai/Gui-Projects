@@ -1,18 +1,18 @@
-# Project: not T rex run
+# Project: skullRun
 # Makefile created by Embarcadero Dev-C++ 6.3
 
 CPP      = g++.exe
 CC       = gcc.exe
 WINDRES  = windres.exe
-OBJ      = ../../Cpp-for-Beginners/DevC++/main.o
-LINKOBJ  = ../../Cpp-for-Beginners/DevC++/main.o
-LIBS     = -L"D:/DevCPP_v6.3/Dev-Cpp/TDM-GCC-64/lib" -L"D:/DevCPP_v6.3/Dev-Cpp/TDM-GCC-64/x86_64-w64-mingw32/lib" -static-libgcc -mwindows
+OBJ      = main.o
+LINKOBJ  = main.o
+LIBS     = -L"D:/DevCPP_v6.3/Dev-Cpp/TDM-GCC-64/lib" -L"D:/DevCPP_v6.3/Dev-Cpp/TDM-GCC-64/x86_64-w64-mingw32/lib" -static-libgcc -mwindows -lwinmm
 INCS     = -I"D:/DevCPP_v6.3/Dev-Cpp/TDM-GCC-64/include" -I"D:/DevCPP_v6.3/Dev-Cpp/TDM-GCC-64/x86_64-w64-mingw32/include" -I"D:/DevCPP_v6.3/Dev-Cpp/TDM-GCC-64/lib/gcc/x86_64-w64-mingw32/9.2.0/include"
 CXXINCS  = -I"D:/DevCPP_v6.3/Dev-Cpp/TDM-GCC-64/include" -I"D:/DevCPP_v6.3/Dev-Cpp/TDM-GCC-64/x86_64-w64-mingw32/include" -I"D:/DevCPP_v6.3/Dev-Cpp/TDM-GCC-64/lib/gcc/x86_64-w64-mingw32/9.2.0/include" -I"D:/DevCPP_v6.3/Dev-Cpp/TDM-GCC-64/lib/gcc/x86_64-w64-mingw32/9.2.0/include/c++"
-BIN      = "not T rex run.exe"
+BIN      = skullRun.exe
 CXXFLAGS = $(CXXINCS) 
 CFLAGS   = $(INCS) 
-DEL      = D:\DevCPP_v6.3\Dev-Cpp\DevCpp.exe INTERNAL_DEL
+DEL      = D:\DevCPP_v6.3\Dev-Cpp\devcpp.exe INTERNAL_DEL
 
 .PHONY: all all-before all-after clean clean-custom
 
@@ -24,5 +24,5 @@ clean: clean-custom
 $(BIN): $(OBJ)
 	$(CPP) $(LINKOBJ) -o $(BIN) $(LIBS)
 
-../../Cpp-for-Beginners/DevC++/main.o: ../../Cpp-for-Beginners/DevC++/main.cpp
-	$(CPP) -c ../../Cpp-for-Beginners/DevC++/main.cpp -o ../../Cpp-for-Beginners/DevC++/main.o $(CXXFLAGS)
+main.o: main.cpp
+	$(CPP) -c main.cpp -o main.o $(CXXFLAGS)
