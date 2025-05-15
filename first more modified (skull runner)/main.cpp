@@ -32,11 +32,11 @@ int  screenW, screenH;
 // Dino sprite (5x5 pixel art)
 constexpr int PIXEL = 12;
 int dinoSprite[5][5] = {
-    {0,1,1,1,0},
     {1,1,1,1,1},
-    {1,0,1,0,1},
     {1,1,1,1,1},
-    {0,1,1,1,0}
+    {1,1,1,1,1},
+    {1,1,1,1,1},
+    {1,1,1,1,1}
 };
 int dinoX = 50;
 int dinoRows = 5, dinoCols = 5;

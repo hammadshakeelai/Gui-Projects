@@ -1,117 +1,146 @@
+#ifndef UNICODE
+#define UNICODE
+#endif
+#ifndef _UNICODE
+#define _UNICODE
+#endif
+
 #include <windows.h>
-#include <vector>
-#include <cstdlib>
-#include <ctime>
+#include <windowsx.h>
 #include <mmsystem.h>
 #pragma comment(lib, "winmm.lib")
 
-// Color definitions
-constexpr COLORREF BG_COLOR       = RGB(32,32,32);
-constexpr COLORREF GROUND_COLOR   = RGB(200,200,200);
-constexpr COLORREF DINO_COLOR     = RGB(180,140,80);
-constexpr COLORREF OBST_COLOR     = RGB(150,120,80);
-constexpr COLORREF COIN_COLOR     = RGB(255,223,0);
-constexpr COLORREF CLOUD_COLOR    = RGB(255,255,255);
-constexpr COLORREF BTN_COLOR      = RGB(200,160,100);
-constexpr COLORREF TEXT_COLOR     = RGB(255,255,255);
+#include <vector>
+#include <cstdlib>
+#include <ctime>
+#include <string>
+#include <sstream>
+#include <algorithm>
 
-// Screen
-int screenW, screenH, groundY;
+//---------------------------------------------------------------------------
+// T-Rex Runner with Menu and Pixel DINO Sprite (Fixed Entry and WndProc)
+//---------------------------------------------------------------------------
 
-// Double buffer
-HDC memDC;
-HBITMAP memBitmap;
+// Dimensions
+constexpr int DINO_ROWS = 10;
+constexpr int DINO_COLS = 10;
+constexpr int PIXEL     = 14;
+constexpr int DINO_W    = DINO_COLS * PIXEL;
+constexpr int DINO_H    = DINO_ROWS * PIXEL;
+constexpr int GROUND_H  = PIXEL * 3;
+constexpr int COIN_SZ   = PIXEL * 2;
+constexpr UINT TIMER_ID = 1;
 
-// GDI brushes and font
-HBRUSH hbrBG, hbrDino, hbrObs, hbrCoin, hbrCloud, hbrBtn;
-HFONT hFont;
-
-// Dino
-constexpr int PIXEL = 14;
-int dinoX = 80, dinoY = 0, velY = 0;
-constexpr int DINO_ROWS = 5, DINO_COLS = 5;
+// Dino sprite
 int dinoSprite[DINO_ROWS][DINO_COLS] = {
-    {0,1,1,1,0},
-    {1,1,1,1,1},
-    {1,0,1,0,1},
-    {1,1,1,1,1},
-    {0,1,1,1,0}
+    {0,0,0,0,0,1,1,1,1,0},
+    {0,0,0,0,0,1,1,1,1,0},
+    {0,0,0,0,1,1,1,1,1,0},
+    {0,0,0,0,1,1,1,0,0,0},
+    {1,0,0,0,1,1,1,1,0,0},
+    {1,1,0,1,1,1,1,0,0,0},
+    {1,1,1,1,1,1,1,0,0,0},
+    {0,1,1,1,1,1,0,0,0,0},
+    {0,0,1,0,1,0,0,0,0,0},
+    {0,0,1,0,1,0,0,0,0,0}
 };
 
-// Obstacles
-struct Obstacle { int x, y, height; };
-std::vector<Obstacle> obstacles;
+// Colors
+constexpr COLORREF MENU_BG    = RGB(32,32,32);
+constexpr COLORREF GAME_BG    = RGB(248,248,248);
+constexpr COLORREF GROUND_COL = RGB(85,85,85);
+constexpr COLORREF DINO_COL   = RGB(83,83,83);
+constexpr COLORREF OBST_COL   = RGB(52,52,52);
+constexpr COLORREF COIN_COL   = RGB(255,215,0);
+constexpr COLORREF CLOUD_COL  = RGB(204,204,204);
+constexpr COLORREF BTN_BG     = RGB(64,64,64);
+constexpr COLORREF BTN_FG     = RGB(200,200,200);
+constexpr COLORREF TEXT_COL   = RGB(240,240,240);
 
-// Coins
-struct Coin { int x, y; };
-std::vector<Coin> coins;
+// Globals
+int screenW, screenH, groundY;
+int speed=8, score=0, highScore=0, coinCount=0;
+bool inMenu=true, running=false, gameOver=false;
 
-// Clouds
-struct Cloud { int x, y; };
-std::vector<Cloud> clouds;
+double dinoX=PIXEL*6, dinoY, velY=0;
+bool jumping=false;
 
-// Game state
-bool gameRunning = false;
-bool gameOver = false;
-int score = 0, coinCount = 0;
-int baseSpeed = 6, speed = baseSpeed;
+// Double buffer
+static HDC memDC;
+static HBITMAP memBmp;
 
-// UI buttons
-RECT btnPlay   = {300,240,540,300};
-RECT btnExit   = {300,320,540,380};
-RECT btnRetry  = {0,0,0,0};
-RECT btnBack   = {20,20,140,60};
-RECT btnExitGame;
+// GDI resources
+static HBRUSH brMenu, brGame, brDino, brObs, brCoin, brCloud, brBtn;
+static HPEN penGround;
+static HFONT hFont;
 
-// Function prototypes
-LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+// Buttons
+static RECT btnPlay    = {300,200,580,260};
+static RECT btnExit    = {300,300,580,360};
+static RECT btnRestart = {300,250,580,310};
+static RECT btnExitGame;
+
+// Object struct
+struct Obj{ double x,y,h; };
+static std::vector<Obj> obstacles, coins, clouds;
+
+// Prototypes
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+void InitGame();
+void ResetGame();
 void SpawnObstacle();
 void SpawnCoin();
 void SpawnCloud();
+void UpdateState();
+void RenderFrame(HWND hwnd);
 
+// Entry point
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
     srand((unsigned)time(NULL));
-    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_HREDRAW|CS_VREDRAW, WndProc,
-                      0, 0, hInst, NULL, LoadCursor(NULL, IDC_ARROW), NULL, NULL,
-                      "FlappySkull", NULL };
-    RegisterClassEx(&wc);
+
+    WNDCLASSEXW wc = { sizeof(wc) };
+    wc.lpfnWndProc   = WndProc;
+    wc.hInstance     = hInst;
+    wc.lpszClassName = L"TRexMenu";
+    wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
+    RegisterClassExW(&wc);
 
     screenW = GetSystemMetrics(SM_CXSCREEN);
     screenH = GetSystemMetrics(SM_CYSCREEN);
-    groundY = screenH - PIXEL * 3;
-    dinoY   = groundY - PIXEL * DINO_ROWS;
-    btnExitGame = { screenW-140, 20, screenW-20, 60 };
-    btnRetry = { screenW/2-150, groundY/2-30, screenW/2+150, groundY/2+30 };
+    groundY = screenH - GROUND_H;
 
-    HWND hwnd = CreateWindowEx(WS_EX_TOPMOST, wc.lpszClassName, "Skull Runner",
-        WS_POPUP, 0, 0, screenW, screenH, NULL, NULL, hInst, NULL);
+    HWND hwnd = CreateWindowExW(
+        WS_EX_TOPMOST,
+        wc.lpszClassName,
+        L"T-Rex Runner",
+        WS_POPUP,
+        0, 0, screenW, screenH,
+        NULL, NULL, hInst, NULL
+    );
     ShowWindow(hwnd, SW_SHOW);
 
     HDC hdc = GetDC(hwnd);
-    memDC = CreateCompatibleDC(hdc);
-    memBitmap = CreateCompatibleBitmap(hdc, screenW, screenH);
-    SelectObject(memDC, memBitmap);
+    memDC  = CreateCompatibleDC(hdc);
+    memBmp = CreateCompatibleBitmap(hdc, screenW, screenH);
+    SelectObject(memDC, memBmp);
     ReleaseDC(hwnd, hdc);
 
-    // Create brushes and font
-    hbrBG    = CreateSolidBrush(BG_COLOR);
-    hbrDino  = CreateSolidBrush(DINO_COLOR);
-    hbrObs   = CreateSolidBrush(OBST_COLOR);
-    hbrCoin  = CreateSolidBrush(COIN_COLOR);
-    hbrCloud = CreateSolidBrush(CLOUD_COLOR);
-    hbrBtn   = CreateSolidBrush(BTN_COLOR);
-    hFont    = CreateFont(32,0,0,0,FW_BOLD,FALSE,FALSE,FALSE,
-                          DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
-                          CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,
-                          VARIABLE_PITCH,TEXT("Consolas"));
+    // Create brushes, pens, font
+    brMenu    = CreateSolidBrush(MENU_BG);
+    brGame    = CreateSolidBrush(GAME_BG);
+    brDino    = CreateSolidBrush(DINO_COL);
+    brObs     = CreateSolidBrush(OBST_COL);
+    brCoin    = CreateSolidBrush(COIN_COL);
+    brCloud   = CreateSolidBrush(CLOUD_COL);
+    brBtn     = CreateSolidBrush(BTN_BG);
+    penGround = CreatePen(PS_SOLID, GROUND_H, GROUND_COL);
+    hFont     = CreateFontW(28,0,0,0,FW_BOLD,FALSE,FALSE,FALSE,
+                  DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,
+                  CLEARTYPE_QUALITY,VARIABLE_PITCH,L"Consolas");
 
-    // Initial spawn
-    SpawnCloud(); SpawnCloud(); SpawnCloud();
-    SpawnObstacle(); SpawnCoin();
-
-    // High-res timer
+    InitGame();
     timeBeginPeriod(1);
-    SetTimer(hwnd, 1, 16, NULL);
+    SetTimer(hwnd, TIMER_ID, 1000/60, NULL);
 
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0)) {
@@ -121,145 +150,206 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
     return 0;
 }
 
+// Initialize or reset game state
+void InitGame() {
+    obstacles.clear();
+    coins.clear();
+    clouds.clear();
+    ResetGame();
+}
+
+void ResetGame() {
+    score = coinCount = 0;
+    speed = 8;
+    dinoY = groundY - DINO_H;
+    velY  = 0;
+    jumping = false;
+    running = !inMenu;
+    gameOver = false;
+
+    btnExitGame = { screenW - 100, 0, screenW, 40 };
+    SpawnCloud();
+    SpawnObstacle();
+    SpawnCoin();
+}
+
+// Spawners
 void SpawnObstacle() {
-    int h = PIXEL * (2 + rand() % 3);
-    obstacles.push_back({ screenW, groundY - h, h });
+    double base = PIXEL * (2 + rand() % 3);
+    double bonus = PIXEL * (score / 20.0);
+    obstacles.push_back({ screenW + rand() % 300, groundY - (base + bonus), base + bonus });
 }
 
 void SpawnCoin() {
-    coins.push_back({ screenW, rand() % (groundY - 3*PIXEL) });
+    coins.push_back({ screenW + rand() % 500, double(rand() % (groundY - COIN_SZ)), 0 });
 }
 
 void SpawnCloud() {
-    clouds.push_back({ rand() % screenW, rand() % (groundY/2) });
+    clouds.push_back({ double(rand() % screenW), double(rand() % (groundY / 2)), 0 });
 }
 
+// Update physics & state
+void UpdateState() {
+    velY += 1.0;
+    dinoY += velY;
+    if (dinoY >= groundY - DINO_H) {
+        dinoY = groundY - DINO_H;
+        velY  = 0;
+        jumping = false;
+    }
+
+    for (auto &o : obstacles) o.x -= speed;
+    for (auto &c : coins)     c.x -= speed;
+    for (auto &c : clouds)    c.x -= speed / 2;
+
+    if (!obstacles.empty() && obstacles.front().x < -PIXEL * 5) {
+        obstacles.erase(obstacles.begin());
+        SpawnObstacle();
+        score++;
+        if (score % 10 == 0) speed++;
+    }
+    if (!coins.empty() && coins.front().x < -COIN_SZ) {
+        coins.erase(coins.begin());
+        SpawnCoin();
+    }
+    if (!clouds.empty() && clouds.front().x < -PIXEL * 8) {
+        clouds.erase(clouds.begin());
+        SpawnCloud();
+    }
+
+    RECT dr = { int(dinoX), int(dinoY), int(dinoX + DINO_W), int(dinoY + DINO_H) };
+    for (auto &o : obstacles) {
+        RECT r = { int(o.x), int(o.y), int(o.x + PIXEL * 3), int(o.y + o.h) };
+        if (IntersectRect(&r, &dr, &r)) {
+            running  = false;
+            gameOver = true;
+            highScore = std::max(highScore, score);
+        }
+    }
+    for (auto &c : coins) {
+        RECT r = { int(c.x), int(c.y), int(c.x + COIN_SZ), int(c.y + COIN_SZ) };
+        if (IntersectRect(&r, &dr, &r)) {
+            coinCount++;
+            c.x = -COIN_SZ * 2;
+        }
+    }
+}
+
+// Render
+void RenderFrame(HWND hwnd) {
+    PAINTSTRUCT ps;
+    HDC hdc = BeginPaint(hwnd, &ps);
+
+    FillRect(memDC, &ps.rcPaint, inMenu ? brMenu : brGame);
+
+    if (inMenu) {
+        SelectObject(memDC, hFont);
+        SetTextColor(memDC, TEXT_COL);
+        SetBkMode(memDC, TRANSPARENT);
+        RECT titleRect = { 0, screenH/4 - 50, screenW, screenH/4 + 50 };
+        DrawTextW(memDC, L"T-REX RUNNER", -1, &titleRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+        FillRect(memDC, &btnPlay, brBtn);
+        SetTextColor(memDC, BTN_FG);
+        DrawTextW(memDC, L"PLAY", -1, &btnPlay, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+        FillRect(memDC, &btnExit, brBtn);
+        DrawTextW(memDC, L"EXIT", -1, &btnExit, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    } else {
+        SelectObject(memDC, brCloud);
+        for (auto &c : clouds) Ellipse(memDC, int(c.x), int(c.y), int(c.x + PIXEL*8), int(c.y + PIXEL*4));
+
+        SelectObject(memDC, penGround);
+        MoveToEx(memDC, 0, groundY, NULL);
+        LineTo(memDC, screenW, groundY);
+
+        SelectObject(memDC, brObs);
+        for (auto &o : obstacles) {
+            RECT r = { int(o.x), int(o.y), int(o.x + PIXEL*3), int(o.y + o.h) };
+            FillRect(memDC, &r, brObs);
+        }
+
+        SelectObject(memDC, brCoin);
+        for (auto &c : coins) Ellipse(memDC, int(c.x), int(c.y), int(c.x + COIN_SZ), int(c.y + COIN_SZ));
+
+        SelectObject(memDC, brDino);
+        for (int r = 0; r < DINO_ROWS; ++r) {
+            for (int c = 0; c < DINO_COLS; ++c) {
+                if (dinoSprite[r][c]) {
+                    RECT pr = { int(dinoX + c*PIXEL), int(dinoY + r*PIXEL), int(dinoX + (c+1)*PIXEL), int(dinoY + (r+1)*PIXEL) };
+                    FillRect(memDC, &pr, brDino);
+                }
+            }
+        }
+
+        SelectObject(memDC, hFont);
+        SetTextColor(memDC, RGB(83,83,83));
+        SetBkMode(memDC, TRANSPARENT);
+        std::wostringstream oss;
+        oss << L"Score: " << score << L"  High: " << highScore << L"  Coins: " << coinCount;
+        std::wstring ui = oss.str();
+        TextOutW(memDC, 20, 20, ui.c_str(), (int)ui.size());
+
+        FillRect(memDC, &btnExitGame, brBtn);
+        SetTextColor(memDC, BTN_FG);
+        DrawTextW(memDC, L"EXIT", -1, &btnExitGame, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+        if (gameOver) {
+            FillRect(memDC, &btnRestart, brBtn);
+            DrawTextW(memDC, L"RESTART", -1, &btnRestart, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        }
+    }
+
+    BitBlt(hdc, 0, 0, screenW, screenH, memDC, 0, 0, SRCCOPY);
+    EndPaint(hwnd, &ps);
+}
+
+// Window procedure
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_TIMER:
-        if (gameRunning && !gameOver) {
-            // Dino physics
-            velY += 1;
-            dinoY += velY;
-            if (dinoY < 0) { dinoY = 0; velY = 0; }
-            if (dinoY > groundY - PIXEL * DINO_ROWS) gameOver = true;
-            // Move clouds
-            for (auto &c : clouds) { if ((c.x -= speed/4) < -PIXEL*3) c.x = screenW; }
-            // Move obstacles and coins
-            for (auto &o : obstacles) o.x -= speed;
-            for (auto &c : coins) c.x -= speed;
-            // Spawn new
-            if (!obstacles.empty() && obstacles.front().x < -PIXEL*3) { obstacles.erase(obstacles.begin()); SpawnObstacle(); score++; }
-            if (!coins.empty() && coins.front().x < -COIN_SIZE) { coins.erase(coins.begin()); SpawnCoin(); }
-            // Collisions
-            RECT drect = { dinoX, dinoY, dinoX+PIXEL*DINO_COLS, dinoY+PIXEL*DINO_ROWS };
-            for (auto &c : coins) {
-                RECT crect = { c.x, c.y, c.x+COIN_SIZE, c.y+COIN_SIZE };
-                if (IntersectRect(&crect, &drect, &crect)) { coinCount++; c.x = -COIN_SIZE; }
-            }
-            for (auto &o : obstacles) {
-                RECT orect = { o.x, o.y, o.x+PIXEL*3, o.y+o.height };
-                if (IntersectRect(&orect, &drect, &orect)) gameOver = true;
-            }
-        }
+        if (!inMenu) UpdateState();
         InvalidateRect(hwnd, NULL, FALSE);
         break;
-    case WM_KEYDOWN:
-        if (wParam == VK_SPACE) {
-            if (!gameRunning) gameRunning = true;
-            else if (!gameOver) velY = -PIXEL*4;
-        }
-        break;
     case WM_LBUTTONDOWN: {
-        POINT pt = { LOWORD(lParam), HIWORD(lParam) };
-        if (!gameRunning) {
-            if (PtInRect(&btnPlay, pt)) gameRunning = true;
+        POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+        if (inMenu) {
+            if (PtInRect(&btnPlay, pt)) { inMenu = false; ResetGame(); }
             else if (PtInRect(&btnExit, pt)) PostQuitMessage(0);
-        } else if (gameOver) {
-            if (PtInRect(&btnRetry, pt)) {
-                // Reset
-                gameOver = false; score = coinCount = velY = 0;
-                obstacles.clear(); coins.clear(); clouds.clear();
-                SpawnCloud(); SpawnObstacle(); SpawnCoin();
-            } else if (PtInRect(&btnBack, pt)) {
-                gameRunning = false;
-            }
-        } else if (PtInRect(&btnExitGame, pt)) {
-            PostQuitMessage(0);
+        } else {
+            if (PtInRect(&btnExitGame, pt)) PostQuitMessage(0);
+            if (gameOver && PtInRect(&btnRestart, pt)) ResetGame();
         }
         break;
     }
-    case WM_PAINT: {
-        PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hwnd, &ps);
-        // Draw to memDC
-        FillRect(memDC, &ps.rcPaint, hbrBG);
-        // Clouds
-        SelectObject(memDC, hbrCloud);
-        for (auto &c : clouds) Ellipse(memDC, c.x, c.y, c.x+PIXEL*3, c.y+PIXEL);
-        // Ground line
-        HPEN hPen = CreatePen(PS_SOLID, 2, GROUND_COLOR);
-        HGDIOBJ oldPen = SelectObject(memDC, hPen);
-        MoveToEx(memDC, 0, groundY, NULL); LineTo(memDC, screenW, groundY);
-        SelectObject(memDC, oldPen); DeleteObject(hPen);
-        // Dino
-        SelectObject(memDC, hbrDino);
-        for (int r=0; r<DINO_ROWS; ++r)
-            for (int c=0; c<DINO_COLS; ++c)
-                if (dinoSprite[r][c]) {
-                    RECT pr = { dinoX+c*PIXEL, dinoY+r*PIXEL, dinoX+(c+1)*PIXEL, dinoY+(r+1)*PIXEL };
-                    FillRect(memDC, &pr, hbrDino);
-                }
-        // Obstacles
-        SelectObject(memDC, hbrObs);
-        for (auto &o : obstacles) {
-            for (int r=0; r<o.height/PIXEL; ++r) {
-                RECT pr = { o.x, o.y+r*PIXEL, o.x+PIXEL*3, o.y+(r+1)*PIXEL };
-                FillRect(memDC, &pr, hbrObs);
-            }
+    case WM_KEYDOWN:
+        if (!inMenu && wParam == VK_SPACE && !jumping && !gameOver) {
+            velY = -PIXEL * 3;
+            jumping = true;
         }
-        // Coins
-        SelectObject(memDC, hbrCoin);
-        for (auto &c : coins) Ellipse(memDC, c.x, c.y, c.x+COIN_SIZE, c.y+COIN_SIZE);
-        // UI Text
-        SelectObject(memDC, hFont);
-        SetTextColor(memDC, TEXT_COLOR); SetBkMode(memDC, TRANSPARENT);
-        char buf[64];
-        wsprintfA(buf, "Score: %d", score);
-        TextOutA(memDC, 20, 20, buf, lstrlenA(buf));
-        wsprintfA(buf, "Coins: %d", coinCount);
-        TextOutA(memDC, 20, 60, buf, lstrlenA(buf));
-        // Buttons
-        SelectObject(memDC, hbrBtn);
-        if (!gameRunning) {
-            FillRect(memDC, &btnPlay, hbrBtn);
-            DrawTextA(memDC, "PLAY", -1, &btnPlay, DT_CENTER|DT_VCENTER|DT_SINGLELINE);
-            FillRect(memDC, &btnExit, hbrBtn);
-            DrawTextA(memDC, "EXIT", -1, &btnExit, DT_CENTER|DT_VCENTER|DT_SINGLELINE);
-        } else if (!gameOver) {
-            FillRect(memDC, &btnExitGame, hbrBtn);
-            DrawTextA(memDC, "EXIT", -1, &btnExitGame, DT_CENTER|DT_VCENTER|DT_SINGLELINE);
-        } else {
-            FillRect(memDC, &btnRetry, hbrBtn);
-            DrawTextA(memDC, "RETRY", -1, &btnRetry, DT_CENTER|DT_VCENTER|DT_SINGLELINE);
-            FillRect(memDC, &btnBack, hbrBtn);
-            DrawTextA(memDC, "BACK", -1, &btnBack, DT_CENTER|DT_VCENTER|DT_SINGLELINE);
-        }
-        // Blit
-        BitBlt(hdc, 0, 0, screenW, screenH, memDC, 0, 0, SRCCOPY);
-        EndPaint(hwnd, &ps);
+        if (inMenu && wParam == VK_RETURN) { inMenu = false; ResetGame(); }
+        if (gameOver && wParam == VK_RETURN) ResetGame();
+        if (wParam == VK_ESCAPE) PostQuitMessage(0);
+        break;
+    case WM_PAINT:
+        RenderFrame(hwnd);
         return 0;
-    }
     case WM_DESTROY:
         KillTimer(hwnd, TIMER_ID);
         timeEndPeriod(1);
+        DeleteObject(memBmp);
         DeleteDC(memDC);
-        DeleteObject(memBitmap);
-        DeleteObject(hbrBG); DeleteObject(hbrDino); DeleteObject(hbrObs);
-        DeleteObject(hbrCoin); DeleteObject(hbrCloud); DeleteObject(hbrBtn);
+        DeleteObject(brMenu);
+        DeleteObject(brGame);
+        DeleteObject(brDino);
+        DeleteObject(brObs);
+        DeleteObject(brCoin);
+        DeleteObject(brCloud);
+        DeleteObject(brBtn);
+        DeleteObject(penGround);
         DeleteObject(hFont);
         PostQuitMessage(0);
         return 0;
     }
-    return DefWindowProc(hwnd, msg, wParam, lParam);
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
 }

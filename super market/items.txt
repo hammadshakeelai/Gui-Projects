@@ -1,0 +1,3 @@
+sikander	69	1
+FAIQ	-300	1
+FARAZ	-0	5
