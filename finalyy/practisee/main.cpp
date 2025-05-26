@@ -27,7 +27,7 @@ public:
     }
 
     void flap() {
-        velocity_ = -20.0f; // Flap effect
+        velocity_ = -18.0f; // Flap effect
     }
 
     void draw(HDC hdc) const {
@@ -89,7 +89,7 @@ public:
 private:
     int x_, gapY_;
     static constexpr int width_ = 50;
-    static constexpr int gap_ = 700;
+    static constexpr int gap_ = 500;
     static constexpr int speed_ = 20; // Speed of the pillars
 };
 

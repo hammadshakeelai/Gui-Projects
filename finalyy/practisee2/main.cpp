@@ -68,7 +68,7 @@ class Pillar {
     Pillar(int x, int y) : x(x), gapY(y), passed(false) {}
     
     void update() {
-        x -= 8;
+        x -= 11;
     }
     
     bool isOffScreen() const {
