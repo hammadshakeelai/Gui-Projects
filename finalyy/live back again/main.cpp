@@ -5,7 +5,7 @@
 #include <string>
 #include <fstream>
 #include <memory> // Added for smart pointers
-
+//green
 // Game Constants
 const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 600;
@@ -106,7 +106,7 @@ public:
     }
 
     void initialize(HDC hdc) {
-        skyBrush_ = CreateSolidBrush(RGB(135, 206, 235));
+        skyBrush_ = CreateSolidBrush(RGB(135, 111, 235));
         groundBrush_ = CreateSolidBrush(RGB(139, 69, 19));
         pillarBrush_ = CreateSolidBrush(RGB(0, 128, 0));
         birdBrush_ = CreateSolidBrush(RGB(255, 215, 0));
@@ -163,7 +163,7 @@ void UpdateGame() {
         
         if (!pillar.passed && pillar.x + PILLAR_WIDTH < g_bird.x) {
             pillar.passed = true;
-            g_score++;
+            g_score+=5;
             if (g_score > g_highScore) {
                 g_highScore = g_score;
                 std::ofstream file("highscore.txt");

@@ -4,7 +4,7 @@
 #include <ctime>
 #include <string>
 #include <fstream>
-
+//yellow
 // Configurations
 static constexpr int windowWidth = 1520;
 static constexpr int windowHeight = 820;
